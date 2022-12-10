@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>epik game</title>
+    <script src="https://cdn.tailwindcss.com/3.2.4"></script>
+</head>
+<body class="overflow-hidden">
+    <div class="text-center">
+        <h1 class="font-bold text-[2rem] text-transparent mt-5 text-center bg-gradient-to-r bg-clip-text from-orange-500 to-red-500">epik gam go her</h1>
+        <p id="idTxt">Your client id: </p>
+        <input class="p-2 bg-gray-100 m-2 rounded" placeholder="Your message here" type="text" id="msgInp">
+        <button onclick="sendMsg()" class="bg-blue-500 p-2 rounded text-white hover:bg-blue-800 transition-all duration-500">Send Message</button>
+    </div>
+    <div id="game" class="w-screen h-screen border-[5px] border-orange-200 rounded overflow-hidden">
+        <!-- <div id='${plr.id}' class="p-5 w-5  m-1 rounded-full bg-red-500 top-[20px]">
+            <div id="chatmsg" class="bg-gray-200 rounded p-2 w-max h-fit z-40 absolute">How are u doin fam?</div>
+        </div> -->
+    </div>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script>
+        const socket = io()
+        const canvas = document.getElementById("game");
+        let speed = 10
+        var gameData = {
+            player:{
+                x: 0,
+                y: 0
+            },
+        }
+        var colors=[
+            "red",
+            "blue",
+            "pink",
+            "yellow",
+            "cyan",
+            "green",
+            "orange",
+        ]
+        socket.on("connect",()=>{
+            document.querySelector("#idTxt").innerText= "Your client id: "+socket.id
+            var playerInfo = {
+                info:{
+                    color: "red",
+                    hasAdmin: false,
+                    x: gameData.player.x,
+                    y: gameData.player.y
+                },
+                id: socket.id
+            }
+            var createPlayer = function(x,y,plr){
+                canvas.innerHTML+=`<div id='${plr.id}' class="p-5 w-5 h-5 m-1 relative rounded-full flex flex-col justify-end items-center"></div>`
+                canvas.querySelector("#"+plr.id).style.backgroundColor=plr.info.color
+                gameData[plr.id]={x:0,y:0}
+                gameData[plr.id].x = x
+                gameData[plr.id].y = y
+                // return { playerId: plr.id, pos: { x: gameData[plr.id].x, y: gameData[plr.id].y } }
+            }
+            var draw = function (x,y,id) {
+                canvas.querySelector("#"+id).style.left =x+"px"
+                canvas.querySelector("#"+id).style.top = y+"px"
+                gameData.player.x=x
+                gameData.player.y=y
+                gameData[socket.id].x = gameData.player.x
+                gameData[socket.id].y = gameData.player.y
+                return {playerId: socket.id,pos:{ x: gameData.player.x, y: gameData.player.y }}
+            }
+            window.addEventListener("keydown",(e)=>{
+                if (e.key == "w") {
+                    var movementData = draw(gameData.player.x, gameData.player.y - speed, socket.id)
+                    socket.emit("movement", movementData)
+                }
+                if (e.key == "a") {
+                    var movementData = draw(gameData.player.x - speed, gameData.player.y, socket.id)
+                    socket.emit("movement", movementData)
+                }
+                if (e.key == "s") {
+                    var movementData = draw(gameData.player.x, gameData.player.y + speed, socket.id)
+                    socket.emit("movement", movementData)
+                }
+                if (e.key == "d") {
+                    var movementData = draw(gameData.player.x + speed, gameData.player.y, socket.id)
+                    socket.emit("movement", movementData)
+                }
+            })
+            playerInfo.info.color=colors[Math.floor(Math.random() * colors.length)];
+            socket.emit("registerPlayer",playerInfo)
+            // draw(20, 10)
+            socket.on("registeredPlayer",(plr)=>{
+                createPlayer(0,0,plr)
+            })
+            socket.on("getPlayers",(plrs)=>{
+                // canvas.innerHTML=""
+                for(var plr in plrs){
+                    if(plr!=socket.id){
+                        createPlayer(0, 0, plrs[plr])
+                    }
+                }
+            })
+            socket.on("updateMovement",mData=>{
+                canvas.querySelector("#"+mData.playerId).style.left=mData.pos.x+"px"
+                canvas.querySelector("#"+mData.playerId).style.top=mData.pos.y+"px"
+            })
+        })
+        function sendMsg(){
+            var msg = document.querySelector("#msgInp").value
+            msg = msg.trim()
+            if(msg==""){
+                return false
+            }
+            document.querySelector("#msgInp").value=""
+            socket.emit("message",{id: socket.id,message:msg})
+            canvas.querySelector("#"+socket.id).innerHTML+=`<div id="chatmsg-${socket.id}" class="bg-blue-500 text-white rounded p-2 w-max h-fit z-40 relative m-1">${msg}</div>`
+            setTimeout(() => {
+                canvas.querySelector("#chatmsg-"+socket.id).remove()
+            }, 5000);
+            socket.on("message",(msgData)=>{
+                canvas.querySelector("#" + msgData.id).innerHTML += `<div id="chatmsg-${msgData.id}" class="bg-gray-200 rounded p-2 w-max h-fit z-40 relative m-1">${msgData.message}</div>`
+                setTimeout(() => {
+                    canvas.querySelector("#chatmsg-" + msgData.id).remove()
+                }, 5000);
+            })
+        }
+    </script>
+</body>
+</html>
